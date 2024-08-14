@@ -10,7 +10,7 @@ function Lobby({name, isAdmin, remotePeerId, sendData}){
 
     const adminIns = useRef(null);
     
-    const playersData = useRef([{conn: null, name: name, isAdmin: true}]);
+    const [playersData, setPlayersData] = useState([{conn: null, name: name, isAdmin: true}]);
     const [allReady, setAllReady] = useState(false);
   
     useEffect(() => {
@@ -22,6 +22,7 @@ function Lobby({name, isAdmin, remotePeerId, sendData}){
         peer.on('open', id => {
             setPeerId(id);
             console.log(`My peer id: ${peerId}`);
+            connectPeer();
         })
 
         peer.on('connection', conn => {
@@ -29,10 +30,10 @@ function Lobby({name, isAdmin, remotePeerId, sendData}){
 
             playersData.current = [...playersData.current, {conn: conn, name: conn.label, isReady: false, isAdmin: false}];
 
-            sendAll({type: 'playerData',data: playersData.current.map(e => ({...e, conn: null}))});//sendAll이 player쪽 conn 연결되지 않은 상태에서 보내지는 걸로 추정, setTimeout 사용
-            setTimeout(() => {sendAll({type: 'playerData',data: playersData.current.map(e => ({...e, conn: null}))});}, 1000);
+            sendAll({type: 'playerData',data: playersData.map(e => ({...e, conn: null}))});//sendAll이 player쪽 conn 연결되지 않은 상태에서 보내지는 걸로 추정, setTimeout 사용
+            setTimeout(() => {sendAll({type: 'playerData',data: playersData.map(e => ({...e, conn: null}))});}, 1000);
 
-            console.log(playersData.current);
+            console.log(playersData);
 
             conn.on('data', data => {
                 console.log('recevied data');
@@ -44,12 +45,12 @@ function Lobby({name, isAdmin, remotePeerId, sendData}){
                         sendAll(data);
                         break;
                     case 'ready':
-                        playersData.current = playersData.current.map(e => ({...e, isReady: e.name===data.sender ? !e.isReady : e.isReady}));
-                        sendAll({type: 'playerData',data: playersData.current.map(e => ({...e, conn: null}))});
+                        setPlayersData(() => playersData.map(e => ({...e, isReady: e.name===data.sender ? !e.isReady : e.isReady})));
+                        sendAll({type: 'playerData',data: playersData.map(e => ({...e, conn: null}))});
                         
                         let temp = true;
 
-                        for(const player of playersData.current){
+                        for(const player of playersData){
                             if(!player.isAdmin && !player.isReady){
                                 temp = false;
                                 break;
@@ -73,7 +74,7 @@ function Lobby({name, isAdmin, remotePeerId, sendData}){
         console.log('sendAll act');
         console.log(data);
         if(!isAdmin) return;
-        for(const player of playersData.current){
+        for(const player of playersData){
             if(player.conn)
                 player.conn.send(data);
         }
@@ -103,9 +104,9 @@ function Lobby({name, isAdmin, remotePeerId, sendData}){
                     case 'ready':
                         break;
                     case 'playerData':
-                        playersData.current = data.data;
+                        setPlayersData(() => data.data);
                         console.log('recevied playerData');
-                        console.log(playersData.current);
+                        console.log(playersData);
                         break;
                 }
                 
